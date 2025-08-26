@@ -15,4 +15,11 @@ router.get(
   controller.getTeacherProfile
 )
 
+router.put(
+  '/profile/update',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.updateTeacherProfile
+)
+
 module.exports = router
