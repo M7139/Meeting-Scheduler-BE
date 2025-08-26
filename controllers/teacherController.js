@@ -25,9 +25,21 @@ const getTeacherById = async (req, res) => {
   }
 }
 
+//function to view the teachers profile
+const getTeacherProfile = async (req, res) => {
+  try {
+    const teacher = await Teacher.findById(req.user.id).select('-passwordDigest')
+    if (!teacher) return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
+    res.send(teacher)
+  } catch (error) {
+    res.status(500).send({ status: 'Error', msg: 'Failed to fetch profile' })
+  }
+}
+
 
 module.exports = {
   getTeachers,
   getTeacherById,
-  
+  getTeacherProfile,
+
 }
