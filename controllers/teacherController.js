@@ -43,6 +43,8 @@ const getTeacherProfile = async (req, res) => {
   }
 }
 
+
+// profile update function
 const updateTeacherProfile = async (req, res) => {
   try {
     const { name, email, department, office, password } = req.body
@@ -71,9 +73,24 @@ const updateTeacherProfile = async (req, res) => {
   }
 }
 
+
+//delete account function
+
+const deleteTeacher = async (req, res) => {
+  try {
+    const deleted = await Teacher.findByIdAndDelete(req.user.id)
+    if (!deleted) return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
+    res.send({ status: 'Ok', msg: 'Teacher account deleted' })
+  } catch (error) {
+    res.status(500).send({ status: 'Error', msg: 'Failed to delete account' })
+  }
+}
+
+
 module.exports = {
   getTeachers,
   getTeacherById,
   getTeacherProfile,
-  updateTeacherProfile
+  updateTeacherProfile,
+  deleteTeacher,
 }

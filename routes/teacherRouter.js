@@ -16,10 +16,17 @@ router.get(
 )
 
 router.put(
-  '/profile/update',
+  '/profile/me',
   middleware.stripToken,
   middleware.verifyToken,
   controller.updateTeacherProfile
+)
+
+router.delete(
+  '/profile/me',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.deleteTeacher
 )
 
 module.exports = router
