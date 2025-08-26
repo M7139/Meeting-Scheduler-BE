@@ -5,11 +5,10 @@ const morgan = require('morgan')
 require('dotenv').config()
 //
 const authRouter = require('./routes/authRouter')
-
-
+const teacherRouter = require('./routes/teacherRouter')
 
 // Initialize app
-const app = express();
+const app = express()
 
 // Database Configuration
 const db = require('./db')
@@ -18,10 +17,9 @@ const db = require('./db')
 const port = process.env.PORT ? process.env.PORT : 3000
 
 // Middlewares
-app.use(express.json());
-app.use(cors());
-app.use(morgan("dev"));
-
+app.use(express.json())
+app.use(cors())
+app.use(morgan('dev'))
 
 // Root Route
 app.get('/', (req, res) => {
@@ -30,8 +28,7 @@ app.get('/', (req, res) => {
 
 // Use Routers
 app.use('/auth', authRouter)
-
-
+app.use('/teachers', teacherRouter)
 
 // Listener
 app.listen(port, () => {

@@ -12,6 +12,11 @@ router.post('/register/teacher', controller.RegisterTeacher)
 router.post('/login', controller.Login)
 
 // Check Session (requires valid token)
-router.get('/session', middleware.stripToken, middleware.verifyToken, controller.CheckSession)
+router.get(
+  '/session',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.CheckSession
+)
 
 module.exports = router
