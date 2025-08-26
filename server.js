@@ -3,6 +3,8 @@ const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
 require('dotenv').config()
+//
+const authRouter = require('./routes/authRouter')
 
 
 
@@ -25,6 +27,11 @@ app.use(morgan("dev"));
 app.get('/', (req, res) => {
   res.send('Your app is connected . . . ')
 })
+
+// Use Routers
+app.use('/auth', authRouter)
+
+
 
 // Listener
 app.listen(port, () => {
