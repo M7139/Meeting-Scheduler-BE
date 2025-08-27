@@ -68,9 +68,23 @@ const getBookingById = async (req, res) => {
   }
 }
 
+// get all studnet bookings
+const getStudentBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ student: req.user.id })
+      .populate('teacher', 'name email department')
+    res.send(bookings)
+  } catch (error) {
+    res.status(500).send({ status: 'Error', msg: 'Failed to fetch student bookings' })
+  }
+}
+
+
+
 
 module.exports = {
   createBooking,
   getBookingById,
-  
+  getStudentBookings,
+
 }

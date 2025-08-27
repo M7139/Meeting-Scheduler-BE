@@ -1,0 +1,25 @@
+const router = require('express').Router()
+const controller = require('../controllers/bookingController')
+const middleware = require('../middleware')
+
+
+router.post(
+  '/',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.createBooking
+)
+
+router.get(
+  '/:id',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.getBookingById
+)
+
+router.get(
+  '/student/me',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.getStudentBookings
+)
