@@ -29,6 +29,17 @@ const getTeacherById = async (req, res) => {
   }
 }
 
+// get all teachers available times
+const getTeacherAvailability = async (req, res) => {
+  try {
+    const teacher = await Teacher.findById(req.params.id).select("name availability")
+    if (!teacher) return res.status(404).send({ status: "Error", msg: "Teacher not found" })
+    res.send(teacher.availability)
+  } catch (error) {
+    res.status(500).send({ status: "Error", msg: "Failed to fetch availability" })
+  }
+}
+
 //function to view the teachers profile
 const getTeacherProfile = async (req, res) => {
   try {
@@ -87,10 +98,82 @@ const deleteTeacher = async (req, res) => {
 }
 
 
+// add available times
+const addAvailability = async (req, res) => {
+  try {
+    const { availability } = req.body // array of {day, startTime, endTime}
+    const teacher = await Teacher.findById(req.user.id)
+
+    if (!teacher) {
+      return res.status(404).send({ status: "Error", msg: "Teacher not found" })
+    }
+
+    teacher.availability.push(...availability) 
+    await teacher.save()
+
+    res.send(teacher)
+  } catch (error) {
+    console.error(error)
+    res.status(500).send({ status: "Error", msg: "Failed to add availability" })
+  }
+}
+
+// update times
+const updateAvailability = async (req, res) => {
+  try {
+    const { index, day, startTime, endTime } = req.body
+    const teacher = await Teacher.findById(req.user.id)
+
+    if (!teacher) {
+      return res.status(404).send({ status: "Error", msg: "Teacher not found" })
+    }
+
+    if (teacher.availability[index]) {
+      teacher.availability[index] = { day, startTime, endTime }
+      await teacher.save()
+      res.send(teacher)
+    } else {
+      res.status(400).send({ status: "Error", msg: "Invalid index" })
+    }
+  } catch (error) {
+    console.error(error)
+    res.status(500).send({ status: "Error", msg: "Failed to update availability" })
+  }
+}
+
+// delete times
+const deleteAvailability = async (req, res) => {
+  try {
+    const { index } = req.body
+    const teacher = await Teacher.findById(req.user.id)
+
+    if (!teacher) {
+      return res.status(404).send({ status: "Error", msg: "Teacher not found" })
+    }
+
+    if (teacher.availability[index]) {
+      teacher.availability.splice(index, 1) // remove slot
+      await teacher.save()
+      res.send(teacher)
+    } else {
+      res.status(400).send({ status: "Error", msg: "Invalid index" })
+    }
+  } catch (error) {
+    console.error(error)
+    res.status(500).send({ status: "Error", msg: "Failed to delete availability" })
+  }
+}
+
+
+
 module.exports = {
   getTeachers,
   getTeacherById,
   getTeacherProfile,
   updateTeacherProfile,
   deleteTeacher,
+  addAvailability,
+  updateAvailability,
+  deleteAvailability,
+  getTeacherAvailability,
 }
