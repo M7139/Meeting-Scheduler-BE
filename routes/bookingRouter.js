@@ -30,3 +30,10 @@ router.get(
   middleware.verifyToken,
   controller.getTeacherBookings
 )
+
+router.put(
+  '/:id',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.updateBooking
+)
