@@ -134,6 +134,24 @@ const updateBooking = async (req, res) => {
   }
 }
 
+//function to delete the booking
+const deleteBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+    if (!booking) return res.status(404).send({ status: 'Error', msg: 'Booking not found' })
+
+    // Only student who booked OR teacher can cancel
+    if (booking.student.toString() !== req.user.id && booking.teacher.toString() !== req.user.id) {
+      return res.status(403).send({ status: 'Error', msg: 'Not authorized' })
+    }
+
+    await booking.deleteOne()
+    res.send({ status: 'Ok', msg: 'Booking cancelled' })
+  } catch (error) {
+    res.status(500).send({ status: 'Error', msg: 'Failed to delete booking' })
+  }
+}
+
 
 
 
@@ -143,5 +161,6 @@ module.exports = {
   getStudentBookings,
   getTeacherBookings,
   updateBooking,
+  deleteBooking
 
 }

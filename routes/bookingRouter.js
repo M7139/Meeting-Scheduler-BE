@@ -37,3 +37,13 @@ router.put(
   middleware.verifyToken,
   controller.updateBooking
 )
+
+router.delete(
+  '/:id',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.deleteBooking
+)
+
+module.exports = router
+
