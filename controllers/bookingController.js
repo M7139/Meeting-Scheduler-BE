@@ -55,6 +55,22 @@ const createBooking = async (req, res) => {
   }
 }
 
+// Get the booking by it's id
+const getBookingById = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('teacher', 'name email department')
+      .populate('student', 'name email')
+    if (!booking) return res.status(404).send({ status: 'Error', msg: 'Booking not found' })
+    res.send(booking)
+  } catch (error) {
+    res.status(500).send({ status: 'Error', msg: 'Failed to fetch booking' })
+  }
+}
+
+
 module.exports = {
-  createBooking
+  createBooking,
+  getBookingById,
+  
 }
