@@ -23,3 +23,10 @@ router.get(
   middleware.verifyToken,
   controller.getStudentBookings
 )
+
+router.get(
+  '/teacher/me',
+  middleware.stripToken,
+  middleware.verifyToken,
+  controller.getTeacherBookings
+)

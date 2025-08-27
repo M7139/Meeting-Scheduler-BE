@@ -79,6 +79,16 @@ const getStudentBookings = async (req, res) => {
   }
 }
 
+const getTeacherBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ teacher: req.user.id })
+      .populate('student', 'name email')
+    res.send(bookings)
+  } catch (error) {
+    res.status(500).send({ status: 'Error', msg: 'Failed to fetch teacher bookings' })
+  }
+}
+
 
 
 
@@ -86,5 +96,6 @@ module.exports = {
   createBooking,
   getBookingById,
   getStudentBookings,
+  getTeacherBookings,
 
 }
