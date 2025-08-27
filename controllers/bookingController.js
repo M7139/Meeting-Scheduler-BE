@@ -97,54 +97,52 @@ const getTeacherBookings = async (req, res) => {
 }
 
 // Update booking
+
 const updateBooking = async (req, res) => {
   try {
-    const { day, startTime, endTime } = req.body
     const booking = await Booking.findById(req.params.id)
-    if (!booking)
-      return res.status(404).send({ status: 'Error', msg: 'Booking not found' })
 
-    // Only student who booked it can update
-    if (booking.student.toString() !== res.locals.payload.id) {
-      // ✅ fixed
+    if (!booking) {
+      return res.status(404).send({ status: 'Error', msg: 'Booking not found' })
+    }
+
+    // Ensure the logged-in student owns this booking
+    if (booking.student.toString() !== req.user.id) {
       return res.status(403).send({ status: 'Error', msg: 'Not authorized' })
     }
 
-    // Check teacher still has that slot
-    const teacher = await Teacher.findById(booking.teacher)
-    const isAvailable = teacher.availability.some(
-      (slot) =>
-        slot.day === day &&
-        slot.startTime === startTime &&
-        slot.endTime === endTime
-    )
-    if (!isAvailable) {
-      return res
-        .status(400)
-        .send({ status: 'Error', msg: 'This slot is not available' })
+    const { day, startTime, endTime, title, description } = req.body
+
+    // If user is updating time/day, validate availability
+    if (day || startTime || endTime) {
+      const teacher = await Teacher.findById(booking.teacher)
+
+      const isAvailable = teacher.availability.some((slot) => {
+        return (
+          slot.day === (day || booking.day) &&
+          slot.startTime <= (startTime || booking.startTime) &&
+          slot.endTime >= (endTime || booking.endTime)
+        )
+      })
+
+      if (!isAvailable) {
+        return res
+          .status(400)
+          .send({ status: 'Error', msg: 'This slot is not available' })
+      }
+
+      booking.day = day || booking.day
+      booking.startTime = startTime || booking.startTime
+      booking.endTime = endTime || booking.endTime
     }
 
-    // Check if already booked
-    const existingBooking = await Booking.findOne({
-      teacher: booking.teacher,
-      day,
-      startTime,
-      endTime,
-      _id: { $ne: booking._id }
-    })
-    if (existingBooking) {
-      return res
-        .status(400)
-        .send({ status: 'Error', msg: 'This slot is already booked' })
-    }
+    if (title !== undefined) booking.title = title
+    if (description !== undefined) booking.description = description
 
-    booking.day = day
-    booking.startTime = startTime
-    booking.endTime = endTime
     await booking.save()
-
     res.send(booking)
   } catch (error) {
+    console.error(error)
     res.status(500).send({ status: 'Error', msg: 'Failed to update booking' })
   }
 }
