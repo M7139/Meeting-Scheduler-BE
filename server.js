@@ -7,6 +7,7 @@ require('dotenv').config()
 const authRouter = require('./routes/authRouter')
 const teacherRouter = require('./routes/teacherRouter')
 const studentRouter = require('./routes/studentRouter')
+const bookingRouter = require('./routes/bookingRouter')
 
 // Initialize app
 const app = express()
@@ -31,6 +32,7 @@ app.get('/', (req, res) => {
 app.use('/auth', authRouter)
 app.use('/teachers', teacherRouter)
 app.use('/students', studentRouter)
+app.use('/bookings', bookingRouter)
 
 // Listener
 app.listen(port, () => {
