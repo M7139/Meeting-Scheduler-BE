@@ -1,5 +1,6 @@
 const Teacher = require('../models/Teacher')
 const middleware = require('../middleware')
+const Booking = require('../models/Booking')
 
 //Get all teachers (for students to browse)
 
@@ -40,7 +41,19 @@ const getTeacherAvailability = async (req, res) => {
     )
     if (!teacher)
       return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
-    res.send(teacher.availability)
+
+    const bookings = await Booking.find({ teacher: teacher._id })
+
+    const freeSlots = teacher.availability.filter((slot) => {
+      return !bookings.some(
+        (booking) =>
+          booking.day === slot.day &&
+          booking.startTime === slot.startTime &&
+          booking.endTime === slot.endTime
+      )
+    })
+
+    res.send(freeSlots)
   } catch (error) {
     console.error(error)
     res
