@@ -24,6 +24,7 @@ app.use(express.json())
 app.use(cors())
 app.use(morgan('dev'))
 
+
 // Root Route
 app.get('/', (req, res) => {
   res.send('Your app is connected . . . ')
@@ -32,7 +33,7 @@ app.get('/', (req, res) => {
 // Use Routers
 app.use('/auth', authRouter)
 // app.use("/uploads", express.static("uploads"))
- app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 app.use('/teachers', teacherRouter)
 app.use('/students', studentRouter)

@@ -1,5 +1,7 @@
 const Booking = require('../models/Booking')
 const Teacher = require('../models/Teacher')
+const Student = require('../models/Student')
+const { sendEmail } = require('../middleware/mailer')
 
 // Create a booking
 const createBooking = async (req, res) => {
@@ -45,6 +47,30 @@ const createBooking = async (req, res) => {
       day,
       startTime,
       endTime
+    })
+
+    // Populate teacher & student for emails
+    await booking.populate('teacher', 'name email')
+    await booking.populate('student', 'name email')
+
+    // Send emails
+    const studentEmail = booking.student.email
+    const teacherEmail = booking.teacher.email
+
+    // Email to student
+    sendEmail({
+      to: studentEmail,
+      subject: 'Booking Confirmed',
+      text: `You have successfully booked a meeting with ${booking.teacher.name} on ${day} from ${startTime} to ${endTime}.`,
+      html: `<p>You have successfully booked a meeting with <b>${booking.teacher.name}</b> on <b>${day}</b> from <b>${startTime}</b> to <b>${endTime}</b>.</p>`
+    })
+
+    // Email to teacher
+    sendEmail({
+      to: teacherEmail,
+      subject: 'New Booking Scheduled',
+      text: `${booking.student.name} booked a meeting with you on ${day} from ${startTime} to ${endTime}.`,
+      html: `<p><b>${booking.student.name}</b> booked a meeting with you on <b>${day}</b> from <b>${startTime}</b> to <b>${endTime}</b>.</p>`
     })
 
     res.status(201).send(booking)
@@ -97,25 +123,22 @@ const getTeacherBookings = async (req, res) => {
 }
 
 // Update booking
-
 const updateBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-
-    if (!booking) {
+      .populate('teacher', 'name email')
+      .populate('student', 'name email')
+    if (!booking)
       return res.status(404).send({ status: 'Error', msg: 'Booking not found' })
-    }
 
-    // Ensure the logged-in student owns this booking
     if (booking.student.toString() !== req.user.id) {
       return res.status(403).send({ status: 'Error', msg: 'Not authorized' })
     }
 
     const { day, startTime, endTime, title, description } = req.body
 
-    // If user is updating time/day, validate availability
     if (day || startTime || endTime) {
-      const teacher = await Teacher.findById(booking.teacher)
+      const teacher = await Teacher.findById(booking.teacher._id)
 
       const isAvailable = teacher.availability.some((slot) => {
         return (
@@ -140,6 +163,22 @@ const updateBooking = async (req, res) => {
     if (description !== undefined) booking.description = description
 
     await booking.save()
+
+    // Send update emails
+    sendEmail({
+      to: booking.student.email,
+      subject: 'Booking Updated',
+      text: `Your booking with ${booking.teacher.name} has been updated to ${booking.day} from ${booking.startTime} to ${booking.endTime}.`,
+      html: `<p>Your booking with <b>${booking.teacher.name}</b> has been updated to <b>${booking.day}</b> from <b>${booking.startTime}</b> to <b>${booking.endTime}</b>.</p>`
+    })
+
+    sendEmail({
+      to: booking.teacher.email,
+      subject: 'Booking Updated',
+      text: `${booking.student.name} updated their booking with you to ${booking.day} from ${booking.startTime} to ${booking.endTime}.`,
+      html: `<p><b>${booking.student.name}</b> updated their booking with you to <b>${booking.day}</b> from <b>${booking.startTime}</b> to <b>${booking.endTime}</b>.</p>`
+    })
+
     res.send(booking)
   } catch (error) {
     console.error(error)
@@ -151,23 +190,47 @@ const updateBooking = async (req, res) => {
 const deleteBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-    if (!booking)
-      return res.status(404).send({ status: 'Error', msg: 'Booking not found' })
+      .populate('teacher', 'name email')
+      .populate('student', 'name email');
 
-    // Only student or teacher can cancel
-    if (
-      booking.student.toString() !== res.locals.payload.id &&
-      booking.teacher.toString() !== res.locals.payload.id
-    ) {
-      return res.status(403).send({ status: 'Error', msg: 'Not authorized' })
+    if (!booking) {
+      return res.status(404).send({ status: 'Error', msg: 'Booking not found' });
     }
 
-    await booking.deleteOne()
-    res.send({ status: 'Ok', msg: 'Booking cancelled' })
+    // Only student or teacher can cancel
+    const userId = res.locals.payload.id;
+    if (booking.student._id.toString() !== userId && booking.teacher._id.toString() !== userId) {
+      return res.status(403).send({ status: 'Error', msg: 'Not authorized' });
+    }
+
+    // Store emails before deletion
+    const teacherEmail = booking.teacher.email;
+    const studentEmail = booking.student.email;
+
+    // Delete booking
+    await booking.deleteOne();
+
+    // Send cancellation emails (example)
+    await sendEmail({
+      to: teacherEmail,
+      subject: 'Booking Cancelled',
+      text: `Your meeting with ${booking.student.name} on ${booking.day} from ${booking.startTime} to ${booking.endTime} has been cancelled.`,
+    });
+
+    await sendEmail({
+      to: studentEmail,
+      subject: 'Booking Cancelled',
+      text: `Your meeting with ${booking.teacher.name} on ${booking.day} from ${booking.startTime} to ${booking.endTime} has been cancelled.`,
+    });
+
+    // Respond with a simple message
+    res.send({ status: 'Ok', msg: 'Booking cancelled successfully' });
   } catch (error) {
-    res.status(500).send({ status: 'Error', msg: 'Failed to delete booking' })
+    console.error('Error deleting booking:', error);
+    res.status(500).send({ status: 'Error', msg: 'Failed to cancel booking' });
   }
-}
+};
+
 
 module.exports = {
   createBooking,

@@ -1,6 +1,7 @@
 const Teacher = require('../models/Teacher')
 const middleware = require('../middleware')
 const Booking = require('../models/Booking')
+const { sendEmail } = require('../middleware/mailer')
 
 //Get all teachers (for students to browse)
 
@@ -147,37 +148,59 @@ const addAvailability = async (req, res) => {
 // Update availability by slotId
 const updateAvailability = async (req, res) => {
   const { slotId, day, startTime, endTime } = req.body
-  const teacher = await Teacher.findById(req.user.id)
-  if (!teacher)
-    return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
 
-  const slot = teacher.availability.id(slotId)
-  if (!slot)
-    return res.status(404).send({ status: 'Error', msg: 'Slot not found' })
+  try {
+    // Find teacher
+    const teacher = await Teacher.findById(req.user.id)
+    if (!teacher)
+      return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
 
-  // Save old slot info to update bookings
-  const oldDay = slot.day
-  const oldStartTime = slot.startTime
-  const oldEndTime = slot.endTime
+    // Find the slot
+    const slot = teacher.availability.id(slotId)
+    if (!slot)
+      return res.status(404).send({ status: 'Error', msg: 'Slot not found' })
 
-  // Update teacher's slot
-  slot.day = day
-  slot.startTime = startTime
-  slot.endTime = endTime
-  await teacher.save()
+    // Save old slot info
+    const oldDay = slot.day
+    const oldStartTime = slot.startTime
+    const oldEndTime = slot.endTime
 
-  // Update all bookings that match the old slot
-  await Booking.updateMany(
-    {
+    // Update slot
+    slot.day = day
+    slot.startTime = startTime
+    slot.endTime = endTime
+    await teacher.save()
+
+    // Update bookings that match old slot
+    const bookings = await Booking.find({
       teacher: req.user.id,
       day: oldDay,
       startTime: oldStartTime,
       endTime: oldEndTime
-    },
-    { $set: { day, startTime, endTime } }
-  )
+    }).populate('student', 'name email')
 
-  res.send(teacher)
+    for (const booking of bookings) {
+      booking.day = day
+      booking.startTime = startTime
+      booking.endTime = endTime
+      await booking.save()
+
+      // Send email to student about updated slot
+      await sendEmail({
+        to: booking.student.email,
+        subject: 'Meeting Updated',
+        text: `Hi ${booking.student.name}, your meeting with ${teacher.name} has been updated to ${day} from ${startTime} to ${endTime}.`,
+        html: `<p>Hi ${booking.student.name},</p><p>Your meeting with <strong>${teacher.name}</strong> has been updated to <strong>${day}</strong> from <strong>${startTime} to ${endTime}</strong>.</p>`
+      })
+    }
+
+    res.send(teacher)
+  } catch (error) {
+    console.error('Error updating availability slot:', error)
+    res
+      .status(500)
+      .send({ status: 'Error', msg: 'Failed to update availability' })
+  }
 }
 
 // delete availability by slotId
@@ -185,41 +208,53 @@ const deleteAvailability = async (req, res) => {
   try {
     const { slotId } = req.params
 
-    // Find the teacher
+    // Find teacher
     const teacher = await Teacher.findById(req.user.id)
     if (!teacher)
       return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
 
-    // Find the slot index instead of .id()
+    // Find the slot index
     const slotIndex = teacher.availability.findIndex(
       (slot) => slot._id.toString() === slotId
     )
-
     if (slotIndex === -1)
       return res.status(404).send({ status: 'Error', msg: 'Slot not found' })
 
-    // Store slot details to delete bookings
+    // Save slot info to notify students
     const { day, startTime, endTime } = teacher.availability[slotIndex]
 
-    // Remove slot from array
+    // Remove slot
     teacher.availability.splice(slotIndex, 1)
     await teacher.save()
 
-    // Delete associated bookings
-    await Booking.deleteMany({
+    // Find bookings for this slot
+    const bookings = await Booking.find({
       teacher: req.user.id,
       day,
       startTime,
       endTime
-    })
+    }).populate('student', 'name email')
+
+    // Notify students and delete bookings
+    for (const booking of bookings) {
+      await sendEmail({
+        to: booking.student.email,
+        subject: 'Meeting Cancelled',
+        text: `Hi ${booking.student.name}, your meeting with ${teacher.name} on ${day} from ${startTime} to ${endTime} has been cancelled.`,
+        html: `<p>Hi ${booking.student.name},</p><p>Your meeting with <strong>${teacher.name}</strong> on <strong>${day}</strong> from <strong>${startTime} to ${endTime}</strong> has been cancelled.</p>`
+      })
+
+      await booking.deleteOne()
+    }
 
     res.send(teacher)
   } catch (error) {
     console.error('Error deleting availability slot:', error)
-    res.status(500).send({ status: 'Error', msg: 'Failed to delete availability' })
+    res
+      .status(500)
+      .send({ status: 'Error', msg: 'Failed to delete availability' })
   }
 }
-
 
 module.exports = {
   getTeachers,
