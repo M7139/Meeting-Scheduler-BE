@@ -3,6 +3,7 @@ const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
 require('dotenv').config()
+const path = require('path')
 //
 const authRouter = require('./routes/authRouter')
 const teacherRouter = require('./routes/teacherRouter')
@@ -30,6 +31,9 @@ app.get('/', (req, res) => {
 
 // Use Routers
 app.use('/auth', authRouter)
+// app.use("/uploads", express.static("uploads"))
+ app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
 app.use('/teachers', teacherRouter)
 app.use('/students', studentRouter)
 app.use('/bookings', bookingRouter)

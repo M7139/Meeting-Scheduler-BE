@@ -2,78 +2,81 @@ const Student = require('../models/Student')
 const Teacher = require('../models/Teacher')
 const middleware = require('../middleware')
 
-// Student Registration
 const RegisterStudent = async (req, res) => {
   try {
     const { name, email, password } = req.body
+    const profileImage = req.file ? req.file.filename : null
 
     const validation = middleware.validatePassword(password)
     if (!validation.valid) {
       return res.status(400).send({ status: 'Error', msg: validation.msg })
     }
 
-    let passwordDigest = await middleware.hashPassword(password)
+    const passwordDigest = await middleware.hashPassword(password)
 
-    let existingStudent = await Student.findOne({ email })
+    const existingStudent = await Student.findOne({ email })
     if (existingStudent) {
-      return res
-        .status(400)
-        .send('A student with that email has already been registered!')
-    } else {
-      const student = await Student.create({
-        name,
-        email,
-        passwordDigest
+      return res.status(400).send({
+        status: 'Error',
+        msg: 'A student with that email already exists'
       })
-      res.send(student)
     }
+
+    const student = await Student.create({
+      name,
+      email,
+      passwordDigest,
+      profileImage
+    })
+
+    res.send(student)
   } catch (error) {
-    throw error
+    res.status(500).send({ status: 'Error', msg: error.message })
   }
 }
 
-// Teacher Registration
 const RegisterTeacher = async (req, res) => {
   try {
     const { name, email, password, department, office } = req.body
+    const profileImage = req.file ? req.file.filename : null
 
     const validation = middleware.validatePassword(password)
     if (!validation.valid) {
       return res.status(400).send({ status: 'Error', msg: validation.msg })
     }
 
-    let passwordDigest = await middleware.hashPassword(password)
+    const passwordDigest = await middleware.hashPassword(password)
 
-    let existingTeacher = await Teacher.findOne({ email })
+    const existingTeacher = await Teacher.findOne({ email })
     if (existingTeacher) {
-      return res
-        .status(400)
-        .send('A teacher with that email has already been registered!')
-    } else {
-      const teacher = await Teacher.create({
-        name,
-        email,
-        passwordDigest,
-        department,
-        office
+      return res.status(400).send({
+        status: 'Error',
+        msg: 'A teacher with that email already exists'
       })
-      res.send(teacher)
     }
+
+    const teacher = await Teacher.create({
+      name,
+      email,
+      passwordDigest,
+      department,
+      office,
+      profileImage
+    })
+
+    res.send(teacher)
   } catch (error) {
-    throw error
+    res.status(500).send({ status: 'Error', msg: error.message })
   }
 }
 
-// Combined Login
 const Login = async (req, res) => {
   try {
     const { email, password } = req.body
 
-    // Try Student collection first
     let user = await Student.findOne({ email })
     let type = 'student'
 
-    // If not found in Student, try Teacher
     if (!user) {
       user = await Teacher.findOne({ email })
       type = 'teacher'
@@ -83,7 +86,7 @@ const Login = async (req, res) => {
       return res.status(401).send({ status: 'Error', msg: 'Account not found' })
     }
 
-    let matched = await middleware.comparePassword(
+    const matched = await middleware.comparePassword(
       password,
       user.passwordDigest
     )
@@ -93,7 +96,10 @@ const Login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        userType: type
+        userType: type,
+        profileImage: user.profileImage || null,
+        department: type === 'teacher' ? user.department || '' : undefined,
+        office: type === 'teacher' ? user.office || '' : undefined
       }
       let token = middleware.createToken(payload)
       return res.send({ user: payload, token })
@@ -101,13 +107,20 @@ const Login = async (req, res) => {
     res.status(401).send({ status: 'Error', msg: 'Unauthorized' })
   } catch (error) {
     res
-      .status(401)
+      .status(500)
       .send({ status: 'Error', msg: 'An error has occurred when logging in!' })
   }
 }
 
 const CheckSession = async (req, res) => {
   const { payload } = res.locals
+
+  if (payload.userType === 'teacher') {
+    const teacher = await Teacher.findById(payload.id)
+    payload.office = teacher.office || ''
+    payload.department = teacher.department || ''
+  }
+
   res.status(200).send(payload)
 }
 

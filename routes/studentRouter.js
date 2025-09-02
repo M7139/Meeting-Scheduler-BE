@@ -14,6 +14,7 @@ router.put(
   "/profile/me",
   middleware.stripToken,
   middleware.verifyToken,
+  middleware.upload.single('profileImage'),
   controller.updateStudentProfile
 )
 

@@ -1,6 +1,8 @@
 require('dotenv').config()
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const multer = require("multer")
+const path = require("path")
 
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS)
 const APP_SECRET = process.env.APP_SECRET
@@ -56,7 +58,8 @@ const verifyToken = (req, res, next) => {
       req.user = {
         id: payload.id,
         email: payload.email,
-        userType: payload.userType
+        userType: payload.userType,
+        
       }
       return next()
     }
@@ -85,11 +88,40 @@ const validatePassword = (password) => {
   }
 }
 
+// multer setup
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/") // save files in uploads/ folder
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)) // unique filename
+  }
+})
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif/
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
+  const mimetype = allowedTypes.test(file.mimetype)
+
+  if (mimetype && extname) {
+    cb(null, true)
+  } else {
+    cb("Error: Only images are allowed!")
+  }
+}
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
+  fileFilter
+})
+
 module.exports = {
   hashPassword,
   comparePassword,
   createToken,
   stripToken,
   verifyToken,
-  validatePassword
+  validatePassword,
+  upload
 }

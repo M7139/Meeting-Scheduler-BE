@@ -9,6 +9,7 @@ const teacherSchema = new Schema(
 
     department: { type: String, required: true },
     office: { type: String },
+    profileImage: { type: String },
 
     availability: [
       {

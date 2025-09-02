@@ -7,7 +7,7 @@ const Booking = require('../models/Booking')
 const getTeachers = async (req, res) => {
   try {
     const teachers = await Teacher.find().select(
-      'name email department availability'
+      'name email department availability profileImage'
     )
     res.send(teachers)
   } catch (error) {
@@ -62,7 +62,7 @@ const getTeacherAvailability = async (req, res) => {
   }
 }
 
-// Get the logged-in teacher's own profile
+// Get logged-in teacher profile
 const getTeacherProfile = async (req, res) => {
   try {
     const teacher = await Teacher.findById(req.user.id).select(
@@ -77,15 +77,21 @@ const getTeacherProfile = async (req, res) => {
   }
 }
 
-//Update the logged-in teacher's own profile
+// Update logged-in teacher profile
 const updateTeacherProfile = async (req, res) => {
   try {
     const { name, email, department, office, password } = req.body
     const updateFields = { name, email, department, office }
 
+    // Handle password change
     if (password) {
       const hashed = await middleware.hashPassword(password)
       updateFields.passwordDigest = hashed
+    }
+
+    // Handle profile image upload
+    if (req.file) {
+      updateFields.profileImage = req.file.filename
     }
 
     const updatedTeacher = await Teacher.findByIdAndUpdate(
@@ -94,9 +100,8 @@ const updateTeacherProfile = async (req, res) => {
       { new: true }
     ).select('-passwordDigest')
 
-    if (!updatedTeacher) {
+    if (!updatedTeacher)
       return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
-    }
 
     res.send(updatedTeacher)
   } catch (error) {
@@ -139,55 +144,82 @@ const addAvailability = async (req, res) => {
   }
 }
 
-//Update an availability slot by index
+// Update availability by slotId
 const updateAvailability = async (req, res) => {
-  try {
-    const { index, day, startTime, endTime } = req.body
-    const teacher = await Teacher.findById(req.user.id)
+  const { slotId, day, startTime, endTime } = req.body
+  const teacher = await Teacher.findById(req.user.id)
+  if (!teacher)
+    return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
 
-    if (!teacher) {
-      return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
-    }
+  const slot = teacher.availability.id(slotId)
+  if (!slot)
+    return res.status(404).send({ status: 'Error', msg: 'Slot not found' })
 
-    if (teacher.availability[index]) {
-      teacher.availability[index] = { day, startTime, endTime }
-      await teacher.save()
-      res.send(teacher)
-    } else {
-      res.status(400).send({ status: 'Error', msg: 'Invalid index' })
-    }
-  } catch (error) {
-    console.error(error)
-    res
-      .status(500)
-      .send({ status: 'Error', msg: 'Failed to update availability' })
-  }
+  // Save old slot info to update bookings
+  const oldDay = slot.day
+  const oldStartTime = slot.startTime
+  const oldEndTime = slot.endTime
+
+  // Update teacher's slot
+  slot.day = day
+  slot.startTime = startTime
+  slot.endTime = endTime
+  await teacher.save()
+
+  // Update all bookings that match the old slot
+  await Booking.updateMany(
+    {
+      teacher: req.user.id,
+      day: oldDay,
+      startTime: oldStartTime,
+      endTime: oldEndTime
+    },
+    { $set: { day, startTime, endTime } }
+  )
+
+  res.send(teacher)
 }
 
-// Delete an availability slot by index
+// delete availability by slotId
 const deleteAvailability = async (req, res) => {
   try {
-    const { index } = req.body
+    const { slotId } = req.params
+
+    // Find the teacher
     const teacher = await Teacher.findById(req.user.id)
-
-    if (!teacher) {
+    if (!teacher)
       return res.status(404).send({ status: 'Error', msg: 'Teacher not found' })
-    }
 
-    if (teacher.availability[index]) {
-      teacher.availability.splice(index, 1)
-      await teacher.save()
-      res.send(teacher)
-    } else {
-      res.status(400).send({ status: 'Error', msg: 'Invalid index' })
-    }
+    // Find the slot index instead of .id()
+    const slotIndex = teacher.availability.findIndex(
+      (slot) => slot._id.toString() === slotId
+    )
+
+    if (slotIndex === -1)
+      return res.status(404).send({ status: 'Error', msg: 'Slot not found' })
+
+    // Store slot details to delete bookings
+    const { day, startTime, endTime } = teacher.availability[slotIndex]
+
+    // Remove slot from array
+    teacher.availability.splice(slotIndex, 1)
+    await teacher.save()
+
+    // Delete associated bookings
+    await Booking.deleteMany({
+      teacher: req.user.id,
+      day,
+      startTime,
+      endTime
+    })
+
+    res.send(teacher)
   } catch (error) {
-    console.error(error)
-    res
-      .status(500)
-      .send({ status: 'Error', msg: 'Failed to delete availability' })
+    console.error('Error deleting availability slot:', error)
+    res.status(500).send({ status: 'Error', msg: 'Failed to delete availability' })
   }
 }
+
 
 module.exports = {
   getTeachers,

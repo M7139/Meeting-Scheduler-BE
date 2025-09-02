@@ -8,7 +8,6 @@ router.get('/:id', controller.getTeacherById)
 router.get('/:id/availability', controller.getTeacherAvailability)
 
 //these routes are protected
-
 router.get(
   '/profile/me',
   middleware.stripToken,
@@ -20,6 +19,7 @@ router.put(
   '/profile/me',
   middleware.stripToken,
   middleware.verifyToken,
+  middleware.upload.single('profileImage'), 
   controller.updateTeacherProfile
 )
 
@@ -45,7 +45,7 @@ router.put(
 )
 
 router.delete(
-  '/availability',
+  '/availability/:slotId',
   middleware.stripToken,
   middleware.verifyToken,
   controller.deleteAvailability
